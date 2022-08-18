@@ -1,3 +1,5 @@
+forked from [benediktwerner/wasmdbg](https://github.com/benediktwerner/wasmdbg)
+
 # wasmdbg
 
 `wasmdbg` is a gdb-like debugger for WebAssembly binaries written in Rust. It currently supports all MVP version 1 binaries as well as a (currently very limited) subset of WASI.
@@ -14,6 +16,7 @@ $ wasmdbg --version
 ```
 
 To build `wasmdbg` from source:
+
 ```
 $ git clone https://github.com/benediktwerner/wasmdbg
 $ cd wasmdbg
@@ -21,8 +24,8 @@ $ cargo build
 $ ./target/debug/wasmdbg --version
 ```
 
-
 ## Features
+
 - Run MVP version 1 binaries
 - Limited subset of WASI (currently only `wasi_unstable.proc_exit`)
 - Breakpoints: `break`
