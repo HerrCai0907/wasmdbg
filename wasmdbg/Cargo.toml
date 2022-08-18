@@ -17,6 +17,7 @@ edition = "2018"
 [dependencies]
 bwasm = "0.1"
 thiserror = "1.0"
+parity-wasm = "0.45"
 
 [dev-dependencies]
 rand = "0.7"

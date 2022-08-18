@@ -3,6 +3,7 @@ mod debugger;
 mod file;
 pub mod vm;
 // mod wasi;
+mod debuginfo;
 mod wasm;
 
 pub use breakpoints::*;

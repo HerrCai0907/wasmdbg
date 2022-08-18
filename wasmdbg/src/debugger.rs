@@ -4,6 +4,7 @@ use std::rc::Rc;
 use bwasm::{LoadError, Module};
 use thiserror::Error;
 
+use crate::debuginfo::DebugInfo;
 use crate::vm::{CodePosition, InitError, Memory, Trap, VM};
 use crate::{Breakpoint, Breakpoints, File, Value};
 
@@ -27,15 +28,19 @@ pub enum DebuggerError {
 
 pub type DebuggerResult<T> = Result<T, DebuggerError>;
 
-#[derive(Default)]
 pub struct Debugger {
     file: Option<File>,
     vm: Option<VM>,
+    info: Option<DebugInfo>,
 }
 
 impl Debugger {
     pub const fn new() -> Self {
-        Debugger { file: None, vm: None }
+        Debugger {
+            file: None,
+            vm: None,
+            info: None,
+        }
     }
 
     pub fn file(&self) -> Option<&File> {
@@ -49,6 +54,7 @@ impl Debugger {
     pub fn load_file(&mut self, file_path: &str) -> Result<(), LoadError> {
         let module = Module::from_file(file_path)?;
 
+        self.info = Some(DebugInfo::new(&file_path[..]));
         self.file = Some(File::new(file_path.to_owned(), module));
         self.vm = None;
 
@@ -62,6 +68,13 @@ impl Debugger {
             backtrace.push(frame.ret_addr);
         }
         Ok(backtrace)
+    }
+
+    pub fn function_name(&self, func_index: u32) -> Option<&String> {
+        if let Some(info) = &self.info {
+            return info.function_name_map().get(&func_index);
+        };
+        None
     }
 
     pub fn globals(&self) -> DebuggerResult<&[Value]> {

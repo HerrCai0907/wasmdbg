@@ -41,6 +41,7 @@ pub fn add_cmds(commands: &mut Commands) {
     commands.add(
         Command::new("backtrace", cmd_backtrace)
             .takes_args("[all|COUNT:usize]")
+            .alias("bt")
             .description("Print a function backtrace")
             .requires_running(),
     );
@@ -158,9 +159,21 @@ fn cmd_backtrace(dbg: &mut Debugger, args: &[CmdArg]) -> CmdResult {
         max_count = backtrace.len();
     }
     if let Some(curr_func) = backtrace.first() {
-        println!("=> f {:<10}{}", curr_func.func_index, curr_func.instr_index);
+        match dbg.function_name(curr_func.func_index) {
+            Some(function_name) => println!(
+                "=> f {:<10} {:<50} {}",
+                curr_func.func_index, function_name, curr_func.instr_index
+            ),
+            None => println!("=> f {:<10}{}", curr_func.func_index, curr_func.instr_index),
+        }
         for func in &backtrace[1..max_count] {
-            println!("   f {:<10}{}", func.func_index, func.instr_index);
+            match dbg.function_name(func.func_index) {
+                Some(function_name) => println!(
+                    "   f {:<10} {:<50} {}",
+                    func.func_index, function_name, func.instr_index
+                ),
+                None => println!("   f {:<10}{}", func.func_index, func.instr_index),
+            }
         }
     } else {
         println!("WTF? No function backtrace...");
