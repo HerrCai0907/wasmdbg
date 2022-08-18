@@ -39,7 +39,7 @@ impl Memory {
     }
 
     pub fn page_count(&self) -> u32 {
-        (self.data.len() as u32 / PAGE_SIZE)
+        self.data.len() as u32 / PAGE_SIZE
     }
 
     pub fn grow(&mut self, delta: u32) -> i32 {
