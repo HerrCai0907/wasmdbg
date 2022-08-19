@@ -67,6 +67,7 @@ fn cmd_locals(dbg: &mut Debugger, args: &[CmdArg]) -> CmdResult {
         _ => unreachable!(),
     };
     let locals = dbg.get_vm()?.locals()?;
+    let func_index = dbg.get_vm()?.ip().func_index;
     if locals.is_empty() {
         println!("<no locals>");
     } else {
@@ -77,7 +78,10 @@ fn cmd_locals(dbg: &mut Debugger, args: &[CmdArg]) -> CmdResult {
         };
         let max_index_len = locals_trimmed.len().to_string().len();
         for (i, local) in locals_trimmed.iter().enumerate() {
-            println!("Local {:>2$}: {}", i, local, max_index_len);
+            match dbg.local_name(func_index, i as u32) {
+                Some(local_name) => println!("Local {:>3$} {:<50}: {}", i, local_name, local, max_index_len),
+                None => println!("Local {:>2$}: {}", i, local, max_index_len),
+            }
         }
         if locals.len() > max_count {
             println!("...");

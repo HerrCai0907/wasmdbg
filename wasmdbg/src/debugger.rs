@@ -77,6 +77,15 @@ impl Debugger {
         None
     }
 
+    pub fn local_name(&self, func_index: u32, local_index: u32) -> Option<&String> {
+        if let Some(info) = &self.info {
+            if let Some(local_name_map) = info.local_name_map().get(&func_index) {
+                return local_name_map.get(&local_index);
+            }
+        }
+        None
+    }
+
     pub fn globals(&self) -> DebuggerResult<&[Value]> {
         Ok(self.get_vm()?.globals())
     }
