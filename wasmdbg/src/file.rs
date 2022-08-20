@@ -1,5 +1,4 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use bwasm::Module;
 
@@ -7,16 +6,16 @@ use crate::Breakpoints;
 
 pub struct File {
     file_path: String,
-    module: Rc<Module>,
-    breakpoints: Rc<RefCell<Breakpoints>>,
+    module: Arc<Module>,
+    breakpoints: Arc<Mutex<Breakpoints>>,
 }
 
 impl File {
     pub fn new(file_path: String, module: Module) -> Self {
         File {
             file_path,
-            module: Rc::new(module),
-            breakpoints: Rc::new(RefCell::new(Breakpoints::new())),
+            module: Arc::new(module),
+            breakpoints: Arc::new(Mutex::new(Breakpoints::new())),
         }
     }
 
@@ -24,11 +23,14 @@ impl File {
         &self.file_path
     }
 
-    pub const fn module(&self) -> &Rc<Module> {
+    pub const fn module(&self) -> &Arc<Module> {
         &self.module
     }
 
-    pub const fn breakpoints(&self) -> &Rc<RefCell<Breakpoints>> {
+    pub const fn breakpoints(&self) -> &Arc<Mutex<Breakpoints>> {
         &self.breakpoints
+    }
+    pub fn breakpoints_and_unlock(&self) -> MutexGuard<Breakpoints> {
+        self.breakpoints.lock().unwrap()
     }
 }
