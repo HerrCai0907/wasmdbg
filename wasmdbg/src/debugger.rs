@@ -1,5 +1,4 @@
-use std::cell::Ref;
-use std::rc::Rc;
+use std::sync::{Arc, MutexGuard};
 
 use bwasm::{LoadError, Module};
 use thiserror::Error;
@@ -98,8 +97,8 @@ impl Debugger {
         }
     }
 
-    pub fn breakpoints(&self) -> DebuggerResult<Ref<'_, Breakpoints>> {
-        Ok(self.get_file()?.breakpoints().borrow())
+    pub fn breakpoints(&self) -> DebuggerResult<MutexGuard<Breakpoints>> {
+        Ok(self.get_file()?.breakpoints_and_unlock())
     }
 
     pub fn add_breakpoint(&mut self, breakpoint: Breakpoint) -> DebuggerResult<u32> {
@@ -122,15 +121,15 @@ impl Debugger {
                 }
             }
         }
-        Ok(file.breakpoints().borrow_mut().add_breakpoint(breakpoint))
+        Ok(file.breakpoints_and_unlock().add_breakpoint(breakpoint))
     }
 
     pub fn delete_breakpoint(&mut self, index: u32) -> DebuggerResult<bool> {
-        Ok(self.get_file()?.breakpoints().borrow_mut().delete_breakpoint(index))
+        Ok(self.get_file()?.breakpoints_and_unlock().delete_breakpoint(index))
     }
 
     pub fn clear_breakpoints(&mut self) -> DebuggerResult<()> {
-        self.get_file()?.breakpoints().borrow_mut().clear();
+        self.get_file()?.breakpoints_and_unlock().clear();
         Ok(())
     }
 
@@ -169,8 +168,8 @@ impl Debugger {
 
     fn create_vm(&mut self) -> DebuggerResult<&mut VM> {
         let file = self.file.as_ref().ok_or(DebuggerError::NoFileLoaded)?;
-        let module = Rc::clone(file.module());
-        let breakpoints = Rc::clone(file.breakpoints());
+        let module = Arc::clone(file.module());
+        let breakpoints = Arc::clone(file.breakpoints());
         self.vm = Some(VM::new(module, breakpoints).map_err(DebuggerError::InitError)?);
         Ok(self.vm.as_mut().unwrap())
     }

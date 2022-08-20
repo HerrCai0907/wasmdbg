@@ -1,5 +1,4 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use bwasm::{Function, Instruction, Module};
 
@@ -25,7 +24,7 @@ pub struct FunctionFrame {
 }
 
 pub struct VM {
-    module: Rc<Module>,
+    module: Arc<Module>,
     memories: Vec<Memory>,
     tables: Vec<Table>,
     ip: CodePosition,
@@ -34,11 +33,11 @@ pub struct VM {
     label_stack: Vec<Label>,
     function_stack: Vec<FunctionFrame>,
     trap: Option<Trap>,
-    breakpoints: Rc<RefCell<Breakpoints>>,
+    breakpoints: Arc<Mutex<Breakpoints>>,
 }
 
 impl VM {
-    pub fn new(module: Rc<Module>, breakpoints: Rc<RefCell<Breakpoints>>) -> Result<VM, InitError> {
+    pub fn new(module: Arc<Module>, breakpoints: Arc<Mutex<Breakpoints>>) -> Result<VM, InitError> {
         let mut globals = Vec::with_capacity(module.globals().len());
         for global in module.globals() {
             let val = eval_init_expr(global.init_expr())?;
@@ -65,6 +64,10 @@ impl VM {
             trap: None,
             breakpoints,
         })
+    }
+
+    fn breakpoints_and_unlock(&self) -> MutexGuard<Breakpoints> {
+        self.breakpoints.lock().unwrap()
     }
 
     pub fn value_stack(&self) -> &[Value] {
@@ -218,7 +221,7 @@ impl VM {
         let address = self.pop_as::<u32>()? + offset;
         self.push(self.default_memory()?.load::<T>(address)?.into())?;
         let size = core::mem::size_of::<T>() as u32;
-        if let Some(break_index) = self.breakpoints.borrow().find_memory(address, size, false) {
+        if let Some(break_index) = self.breakpoints_and_unlock().find_memory(address, size, false) {
             return Err(Trap::WatchpointReached(break_index));
         }
         Ok(())
@@ -233,7 +236,7 @@ impl VM {
         let val: U = val.extend_to();
         self.push(val.into())?;
         let size = core::mem::size_of::<T>() as u32;
-        if let Some(break_index) = self.breakpoints.borrow().find_memory(address, size, false) {
+        if let Some(break_index) = self.breakpoints_and_unlock().find_memory(address, size, false) {
             return Err(Trap::WatchpointReached(break_index));
         }
         Ok(())
@@ -244,7 +247,7 @@ impl VM {
         let address = self.pop_as::<u32>()? + offset;
         self.default_memory_mut()?.store(address, value)?;
         let size = core::mem::size_of::<T>() as u32;
-        if let Some(break_index) = self.breakpoints.borrow().find_memory(address, size, true) {
+        if let Some(break_index) = self.breakpoints_and_unlock().find_memory(address, size, true) {
             return Err(Trap::WatchpointReached(break_index));
         }
         Ok(())
@@ -259,7 +262,7 @@ impl VM {
         let address = self.pop_as::<u32>()? + offset;
         self.default_memory_mut()?.store(address, value)?;
         let size = core::mem::size_of::<T>() as u32;
-        if let Some(break_index) = self.breakpoints.borrow().find_memory(address, size, true) {
+        if let Some(break_index) = self.breakpoints_and_unlock().find_memory(address, size, true) {
             return Err(Trap::WatchpointReached(break_index));
         }
         Ok(())
@@ -362,7 +365,7 @@ impl VM {
         if let Err(trap) = self.run_func_paused(index, args) {
             return trap;
         }
-        if let Some(index) = self.breakpoints.borrow().find_code(self.ip) {
+        if let Some(index) = self.breakpoints_and_unlock().find_code(self.ip) {
             return Trap::BreakpointReached(index);
         }
         self.continue_execution()
@@ -526,14 +529,14 @@ impl VM {
             Instruction::GetGlobal(index) => {
                 let val = self.globals[index as usize];
                 self.push(val)?;
-                if let Some(break_index) = self.breakpoints.borrow().find_global(index, false) {
+                if let Some(break_index) = self.breakpoints_and_unlock().find_global(index, false) {
                     return Err(Trap::WatchpointReached(break_index));
                 }
             }
             Instruction::SetGlobal(index) => {
                 let val = self.pop()?;
                 self.globals[index as usize] = val;
-                if let Some(break_index) = self.breakpoints.borrow().find_global(index, true) {
+                if let Some(break_index) = self.breakpoints_and_unlock().find_global(index, true) {
                     return Err(Trap::WatchpointReached(break_index));
                 }
             }
@@ -731,7 +734,7 @@ impl VM {
             return Err(Trap::ExecutionFinished);
         }
 
-        if let Some(index) = self.breakpoints.borrow().find_code(self.ip) {
+        if let Some(index) = self.breakpoints_and_unlock().find_code(self.ip) {
             return Err(Trap::BreakpointReached(index));
         }
 
