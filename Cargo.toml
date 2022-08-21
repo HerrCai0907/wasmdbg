@@ -2,4 +2,5 @@
 members = [
     "wasmdbg",
     "wasmdbg-cli",
+    "wasmdbg-grpc",
 ]
