@@ -1,0 +1,62 @@
+syntax = "proto3";
+package wasm_debugger_grpc;
+
+service WasmDebugger {
+  rpc LoadModule(LoadRequest) returns (LoadReply);
+  rpc StartFunction(StartRequest) returns (StartReply);
+  rpc Step(StepRequest) returns (StepReply);
+
+  rpc GetLocal(GetLocalRequest) returns (GetLocalReply);
+}
+
+message LoadRequest { string file_name = 1; }
+message LoadReply {
+  Status status = 1;
+  optional string error_reason = 2;
+}
+
+message StartRequest {}
+message StartReply {
+  Status status = 1;
+  optional string error_reason = 2;
+  optional CodePosition code_position = 3;
+}
+
+message StepRequest {}
+message StepReply {
+  Status status = 1;
+  optional string error_reason = 2;
+  optional CodePosition code_position = 3;
+}
+
+message GetLocalRequest { int32 call_stack = 1; }
+message GetLocalReply {
+  Status status = 1;
+  optional string error_reason = 2;
+  repeated LocalInfo locals = 3;
+}
+
+// Helper
+enum Status {
+  OK = 0;
+  NOK = 1;
+}
+
+message CodePosition {
+  uint32 func_index = 1;
+  uint32 instr_index = 2;
+}
+
+message LocalInfo {
+  optional string name = 1;
+  Value value = 2;
+}
+
+message Value {
+  oneof Value {
+    int32 i32 = 1;
+    int64 i64 = 2;
+    float f32 = 3;
+    double f64 = 4;
+  };
+}
