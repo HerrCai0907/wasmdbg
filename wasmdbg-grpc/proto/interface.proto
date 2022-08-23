@@ -3,10 +3,10 @@ package wasm_debugger_grpc;
 
 service WasmDebugger {
   rpc LoadModule(LoadRequest) returns (LoadReply);
-  rpc StartFunction(StartRequest) returns (StartReply);
-  rpc Step(StepRequest) returns (StepReply);
+  rpc RunCode(RunCodeRequest) returns (RunCodeReply);
 
   rpc GetLocal(GetLocalRequest) returns (GetLocalReply);
+  rpc GetCallStack(GetCallStackRequest) returns (GetCallStackReply);
 }
 
 message LoadRequest { string file_name = 1; }
@@ -15,18 +15,12 @@ message LoadReply {
   optional string error_reason = 2;
 }
 
-message StartRequest {}
-message StartReply {
-  Status status = 1;
-  optional string error_reason = 2;
-  optional CodePosition code_position = 3;
+message RunCodeRequest {
+  RunCodeType run_code_type = 1;
 }
-
-message StepRequest {}
-message StepReply {
+message RunCodeReply {
   Status status = 1;
   optional string error_reason = 2;
-  optional CodePosition code_position = 3;
 }
 
 message GetLocalRequest { int32 call_stack = 1; }
@@ -36,10 +30,23 @@ message GetLocalReply {
   repeated LocalInfo locals = 3;
 }
 
+message GetCallStackRequest {}
+message GetCallStackReply {
+  Status status = 1;
+  optional string error_reason = 2;
+  repeated CodePosition stacks = 3;
+}
+
+
 // Helper
 enum Status {
   OK = 0;
   NOK = 1;
+}
+
+enum RunCodeType {
+  START = 0;
+  STEP = 1;
 }
 
 message CodePosition {
