@@ -2,7 +2,8 @@ use std::sync::Mutex;
 use tonic::{transport::Server, Request, Response};
 use wasm_debugger_grpc::{
     wasm_debugger_server::{WasmDebugger, WasmDebuggerServer},
-    GetLocalReply, GetLocalRequest, LoadReply, LoadRequest, StartReply, StartRequest, StepReply, StepRequest,
+    GetCallStackReply, GetCallStackRequest, GetLocalReply, GetLocalRequest, LoadReply, LoadRequest, RunCodeReply,
+    RunCodeRequest,
 };
 use wasmdbg::{vm::Trap, Debugger, DebuggerResult, Value};
 
@@ -22,27 +23,12 @@ impl WasmDebuggerImpl {
     }
 }
 
-fn get_code_position(dbg: &Debugger) -> Result<wasm_debugger_grpc::CodePosition, String> {
-    match dbg.get_vm() {
-        Ok(vm) => {
-            let ip = vm.ip();
-            Ok(wasm_debugger_grpc::CodePosition {
-                func_index: ip.func_index,
-                instr_index: ip.instr_index,
-            })
-        }
-        Err(err) => return Err(format!("{}", err)),
-    }
-}
-fn handle_run_result(
-    result: DebuggerResult<Option<Trap>>,
-    dbg: &Debugger,
-) -> Result<wasm_debugger_grpc::CodePosition, String> {
+fn handle_run_result(result: DebuggerResult<Option<Trap>>) -> Result<(), String> {
     match result {
         Err(err) => Err(format!("{}", err)),
         Ok(trap) => match trap {
             Some(trap) => Err(format!("{}", trap)),
-            None => get_code_position(&dbg),
+            None => Ok(()),
         },
     }
 }
@@ -77,42 +63,38 @@ impl WasmDebugger for WasmDebuggerImpl {
             error_reason,
         }))
     }
-    async fn start_function(&self, _request: Request<StartRequest>) -> Result<Response<StartReply>, tonic::Status> {
+    async fn run_code(&self, request: Request<RunCodeRequest>) -> Result<Response<RunCodeReply>, tonic::Status> {
         let mut dbg = self.dbg.lock().unwrap();
 
         let mut status = wasm_debugger_grpc::Status::Ok;
         let mut error_reason = None;
-        let mut code_position = None;
 
-        match handle_run_result(dbg.start(), &dbg) {
-            Ok(cp) => code_position = Some(cp),
+        let run_code_type = wasm_debugger_grpc::RunCodeType::from_i32(request.into_inner().run_code_type);
+        let run_code_type = match run_code_type {
+            Some(run_code_type) => run_code_type,
+            None => {
+                return Ok(Response::new(RunCodeReply {
+                    status: wasm_debugger_grpc::Status::Nok as i32,
+                    error_reason: Some(String::from("invalud proto")),
+                }))
+            }
+        };
+
+        let run_result = match run_code_type {
+            wasm_debugger_grpc::RunCodeType::Start => dbg.start(),
+            wasm_debugger_grpc::RunCodeType::Step => dbg.execute_step(),
+        };
+        match handle_run_result(run_result) {
+            Ok(_) => (),
             Err(error_message) => (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(error_message)),
         }
 
-        Ok(Response::new(StartReply {
+        Ok(Response::new(RunCodeReply {
             status: status as i32,
             error_reason,
-            code_position,
         }))
     }
-    async fn step(&self, _request: Request<StepRequest>) -> Result<Response<StepReply>, tonic::Status> {
-        let mut dbg = self.dbg.lock().unwrap();
 
-        let mut status = wasm_debugger_grpc::Status::Ok;
-        let mut error_reason = None;
-        let mut code_position = None;
-
-        match handle_run_result(dbg.execute_step(), &dbg) {
-            Ok(cp) => code_position = Some(cp),
-            Err(error_message) => (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(error_message)),
-        }
-
-        Ok(Response::new(StepReply {
-            status: status as i32,
-            error_reason,
-            code_position,
-        }))
-    }
     async fn get_local(&self, request: Request<GetLocalRequest>) -> Result<Response<GetLocalReply>, tonic::Status> {
         let func_level = request.into_inner().call_stack;
         let dbg = self.dbg.lock().unwrap();
@@ -164,6 +146,44 @@ impl WasmDebugger for WasmDebuggerImpl {
             status: status as i32,
             error_reason,
             locals,
+        }))
+    }
+
+    async fn get_call_stack(
+        &self,
+        _request: Request<GetCallStackRequest>,
+    ) -> Result<Response<GetCallStackReply>, tonic::Status> {
+        let dbg = self.dbg.lock().unwrap();
+        let mut status = wasm_debugger_grpc::Status::Ok;
+        let mut error_reason = None;
+
+        let stacks = (|| -> Result<Vec<wasm_debugger_grpc::CodePosition>, String> {
+            let bt = match dbg.backtrace() {
+                Ok(bt) => bt,
+                Err(err) => return Err(format!("{}", err)),
+            };
+            let bt = bt
+                .iter()
+                .map(|stack| wasm_debugger_grpc::CodePosition {
+                    func_index: stack.func_index,
+                    instr_index: stack.instr_index,
+                })
+                .collect();
+            Ok(bt)
+        })();
+
+        let stacks = match stacks {
+            Ok(stacks) => (stacks),
+            Err(error_message) => {
+                status = wasm_debugger_grpc::Status::Nok;
+                error_reason = Some(error_message);
+                Vec::new()
+            }
+        };
+        Ok(Response::new(GetCallStackReply {
+            status: status as i32,
+            error_reason,
+            stacks,
         }))
     }
 }
