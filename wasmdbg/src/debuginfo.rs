@@ -16,7 +16,13 @@ impl DebugInfo {
             local_name_map: HashMap::new(),
         };
         let module = deserialize_file(file_path).expect("module invalid");
-        let module = module.parse_names().expect("name section invalid");
+        let module = match module.parse_names() {
+            Ok(module) => module,
+            Err((err, module)) => {
+                println!("{:?}", err);
+                module
+            }
+        };
         if let Some(name_section) = module.names_section() {
             if let Some(function_name_section) = name_section.functions() {
                 function_name_section.names().iter().for_each(|item| {
