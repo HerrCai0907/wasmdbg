@@ -6,6 +6,7 @@ service WasmDebugger {
   rpc RunCode(RunCodeRequest) returns (RunCodeReply);
 
   rpc GetLocal(GetLocalRequest) returns (GetLocalReply);
+  rpc GetValueStack(NullRequest) returns (GetValueStackReply);
   rpc GetCallStack(GetCallStackRequest) returns (GetCallStackReply);
 }
 
@@ -15,9 +16,7 @@ message LoadReply {
   optional string error_reason = 2;
 }
 
-message RunCodeRequest {
-  RunCodeType run_code_type = 1;
-}
+message RunCodeRequest { RunCodeType run_code_type = 1; }
 message RunCodeReply {
   Status status = 1;
   optional string error_reason = 2;
@@ -27,7 +26,14 @@ message GetLocalRequest { int32 call_stack = 1; }
 message GetLocalReply {
   Status status = 1;
   optional string error_reason = 2;
-  repeated LocalInfo locals = 3;
+  optional uint32 func_index = 3;
+  repeated Value locals = 4;
+}
+
+message GetValueStackReply {
+  Status status = 1;
+  optional string error_reason = 2;
+  repeated Value values = 4;
 }
 
 message GetCallStackRequest {}
@@ -37,8 +43,9 @@ message GetCallStackReply {
   repeated CodePosition stacks = 3;
 }
 
-
 // Helper
+message NullRequest {}
+
 enum Status {
   OK = 0;
   NOK = 1;
@@ -52,11 +59,6 @@ enum RunCodeType {
 message CodePosition {
   uint32 func_index = 1;
   uint32 instr_index = 2;
-}
-
-message LocalInfo {
-  optional string name = 1;
-  Value value = 2;
 }
 
 message Value {

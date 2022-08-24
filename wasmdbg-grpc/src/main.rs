@@ -2,8 +2,8 @@ use std::sync::Mutex;
 use tonic::{transport::Server, Request, Response};
 use wasm_debugger_grpc::{
     wasm_debugger_server::{WasmDebugger, WasmDebuggerServer},
-    GetCallStackReply, GetCallStackRequest, GetLocalReply, GetLocalRequest, LoadReply, LoadRequest, RunCodeReply,
-    RunCodeRequest,
+    GetCallStackReply, GetCallStackRequest, GetLocalReply, GetLocalRequest, GetValueStackReply, LoadReply, LoadRequest,
+    NullRequest, RunCodeReply, RunCodeRequest,
 };
 use wasmdbg::{vm::Trap, Debugger, DebuggerResult, Value};
 
@@ -34,10 +34,10 @@ fn handle_run_result(result: DebuggerResult<Option<Trap>>) -> Result<(), String>
 }
 
 impl wasm_debugger_grpc::Value {
-    fn from_local(local: &Value) -> Self {
+    fn from_value(value: &Value) -> Self {
         type ProtoValue = wasm_debugger_grpc::value::Value;
         Self {
-            value: Some(match local {
+            value: Some(match value {
                 Value::I32(v) => ProtoValue::I32(*v),
                 Value::I64(v) => ProtoValue::I64(*v),
                 Value::F32(v) => ProtoValue::F32(f32::from(*v)),
@@ -101,8 +101,9 @@ impl WasmDebugger for WasmDebuggerImpl {
 
         let mut status = wasm_debugger_grpc::Status::Ok;
         let mut error_reason = None;
+        let mut func_index = None;
 
-        let locals = (|| -> Result<Vec<wasm_debugger_grpc::LocalInfo>, String> {
+        let locals = (|| -> Result<Vec<wasm_debugger_grpc::Value>, String> {
             let vm = match dbg.get_vm() {
                 Ok(vm) => vm,
                 Err(err) => return Err(format!("{}", err)),
@@ -113,23 +114,15 @@ impl WasmDebugger for WasmDebuggerImpl {
                 return Err(String::from("index should be negative and less than call stack depth"));
             }
             let curr_func = &function_stack[index];
-            let func_index = if func_level == -1 {
-                vm.ip().func_index
+            func_index = if func_level == -1 {
+                Some(vm.ip().func_index)
             } else {
-                function_stack[index + 1].ret_addr.func_index
+                Some(function_stack[index + 1].ret_addr.func_index)
             };
             Ok(curr_func
                 .locals
                 .iter()
-                .enumerate()
-                .map(|(local_index, local)| {
-                    let local_index = local_index as u32;
-                    let name = dbg.local_name(func_index, local_index).cloned();
-                    wasm_debugger_grpc::LocalInfo {
-                        name,
-                        value: Some(wasm_debugger_grpc::Value::from_local(local)),
-                    }
-                })
+                .map(|local| wasm_debugger_grpc::Value::from_value(local))
                 .collect())
         })();
 
@@ -145,7 +138,36 @@ impl WasmDebugger for WasmDebuggerImpl {
         Ok(Response::new(GetLocalReply {
             status: status as i32,
             error_reason,
+            func_index,
             locals,
+        }))
+    }
+
+    async fn get_value_stack(
+        &self,
+        _request: Request<NullRequest>,
+    ) -> Result<Response<GetValueStackReply>, tonic::Status> {
+        let dbg = self.dbg.lock().unwrap();
+        let mut status = wasm_debugger_grpc::Status::Ok;
+        let mut error_reason = None;
+
+        let values: Vec<wasm_debugger_grpc::Value> = dbg
+            .vm()
+            .map(|vm| {
+                vm.value_stack()
+                    .iter()
+                    .map(|value| wasm_debugger_grpc::Value::from_value(value))
+                    .collect()
+            })
+            .unwrap_or_else(|| {
+                status = wasm_debugger_grpc::Status::Nok;
+                error_reason = Some(String::from("vm does not exist"));
+                Vec::new()
+            });
+        Ok(Response::new(GetValueStackReply {
+            status: status as i32,
+            error_reason,
+            values,
         }))
     }
 
