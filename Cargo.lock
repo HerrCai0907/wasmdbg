@@ -631,8 +631,7 @@ checksum = "ddfc878dac00da22f8f61e7af3157988424567ab01d9920b962ef7dcbd7cd865"
 [[package]]
 name = "parity-wasm"
 version = "0.45.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1ad0aff30c1da14b1254fcb2af73e1fa9a28670e584a626f53a369d0e157304"
+source = "git+https://github.com/HerrCai0907/parity-wasm.git?branch=ignore-indexMap-out-of-order#e11e5f4591d29f320e03254f8867bdd044e3c759"
 
 [[package]]
 name = "percent-encoding"
