@@ -1,5 +1,5 @@
+use super::Debugger;
 use wasmdbg::vm::{CodePosition, Trap};
-use wasmdbg::Debugger;
 use wasmdbg::{Breakpoint, BreakpointTrigger, Value};
 
 use super::context;

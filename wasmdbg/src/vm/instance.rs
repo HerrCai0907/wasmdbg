@@ -5,7 +5,7 @@ use bwasm::{Function, Instruction, Module};
 use crate::value::{ExtendTo, Integer, LittleEndianConvert, Number, WrapTo};
 use crate::{Breakpoints, Value, F32, F64};
 
-use super::{eval_init_expr, CodePosition, InitError, Memory, Table, TableElement, Trap, VMResult};
+use super::{eval_init_expr, import_func, CodePosition, InitError, Memory, Table, TableElement, Trap, VMResult};
 
 pub const VALUE_STACK_LIMIT: usize = 1024 * 1024;
 pub const LABEL_STACK_LIMIT: usize = 64 * 1024;
@@ -23,7 +23,10 @@ pub struct FunctionFrame {
     pub locals: Vec<Value>,
 }
 
-pub struct VM {
+pub struct VM<ImportHandler>
+where
+    ImportHandler: import_func::ImportFunctionHandler,
+{
     module: Arc<Module>,
     memories: Vec<Memory>,
     tables: Vec<Table>,
@@ -34,10 +37,14 @@ pub struct VM {
     function_stack: Vec<FunctionFrame>,
     trap: Option<Trap>,
     breakpoints: Arc<Mutex<Breakpoints>>,
+    import_function_handler: ImportHandler,
 }
 
-impl VM {
-    pub fn new(module: Arc<Module>, breakpoints: Arc<Mutex<Breakpoints>>) -> Result<VM, InitError> {
+impl<ImportHandler> VM<ImportHandler>
+where
+    ImportHandler: import_func::ImportFunctionHandler,
+{
+    pub fn new(module: Arc<Module>, breakpoints: Arc<Mutex<Breakpoints>>) -> Result<Self, InitError> {
         let mut globals = Vec::with_capacity(module.globals().len());
         for global in module.globals() {
             let val = eval_init_expr(global.init_expr())?;
@@ -52,7 +59,7 @@ impl VM {
         let memories = Memory::from_module(&module)?;
         let tables = Table::from_module(&module)?;
 
-        Ok(VM {
+        Ok(Self {
             module,
             memories,
             tables,
@@ -63,6 +70,7 @@ impl VM {
             function_stack: Vec::new(),
             trap: None,
             breakpoints,
+            import_function_handler: ImportHandler::default(),
         })
     }
 
@@ -72,6 +80,10 @@ impl VM {
 
     pub fn value_stack(&self) -> &[Value] {
         &self.value_stack
+    }
+
+    pub fn import_function_handler_mut(&mut self) -> &ImportHandler {
+        &self.import_function_handler
     }
 
     pub fn value_stack_mut(&mut self) -> &mut Vec<Value> {
@@ -417,25 +429,18 @@ impl VM {
         Ok(())
     }
 
+    fn execute_import_function(&mut self) -> VMResult<()> {
+        ImportHandler::handle_import_function(self)?;
+        let frame = self.function_stack.pop().unwrap();
+        self.ip = frame.ret_addr;
+        Ok(())
+    }
+
     #[allow(clippy::float_cmp, clippy::redundant_closure)]
     fn execute_step_internal(&mut self) -> VMResult<()> {
         let func = self.module.get_func(self.ip.func_index).unwrap();
         if func.is_imported() {
-            // TODO
-            // if let Some(wasi_func) = func.wasi_function() {
-            //     wasi_func.handle(self)?;
-            //     loop {
-            //         if let Some(Label::Return) = self.label_stack.pop() {
-            //             if !self.label_stack.is_empty() {
-            //                 let frame = self.function_stack.pop().unwrap();
-            //                 self.ip = frame.ret_addr;
-            //             }
-            //             break;
-            //         }
-            //     }
-            //     return Ok(());
-            // }
-            return Err(Trap::UnsupportedCallToImportedFunction(self.ip.func_index));
+            return self.execute_import_function();
         }
 
         let instr = func.instructions()[self.ip.instr_index as usize].clone();

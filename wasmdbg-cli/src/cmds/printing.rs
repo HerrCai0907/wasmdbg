@@ -1,4 +1,4 @@
-use wasmdbg::Debugger;
+use super::Debugger;
 
 use super::format::{fmt_char, Format};
 use super::{CmdArg, CmdResult, Command, Commands};

@@ -4,7 +4,8 @@ use bwasm::{LoadError, Module};
 use thiserror::Error;
 
 use crate::debuginfo::DebugInfo;
-use crate::vm::{CodePosition, InitError, Memory, Trap, VM};
+use crate::vm::import_func::DefaultImportFunctionHandler;
+use crate::vm::{import_func, CodePosition, InitError, Memory, Trap, VM};
 use crate::{Breakpoint, Breakpoints, File, Value};
 
 #[derive(Error, Clone, Debug)]
@@ -27,13 +28,20 @@ pub enum DebuggerError {
 
 pub type DebuggerResult<T> = Result<T, DebuggerError>;
 
-pub struct Debugger {
+pub type DefaultDebugger = Debugger<DefaultImportFunctionHandler>;
+pub struct Debugger<F>
+where
+    F: import_func::ImportFunctionHandler,
+{
     file: Option<File>,
-    vm: Option<VM>,
+    vm: Option<VM<F>>,
     info: Option<DebugInfo>,
 }
 
-impl Debugger {
+impl<F> Debugger<F>
+where
+    F: import_func::ImportFunctionHandler,
+{
     pub const fn new() -> Self {
         Debugger {
             file: None,
@@ -46,7 +54,7 @@ impl Debugger {
         self.file.as_ref()
     }
 
-    pub fn vm(&self) -> Option<&VM> {
+    pub fn vm(&self) -> Option<&VM<F>> {
         self.vm.as_ref()
     }
 
@@ -166,7 +174,7 @@ impl Debugger {
         Ok(self.get_vm_mut()?.execute_step_out().err())
     }
 
-    fn create_vm(&mut self) -> DebuggerResult<&mut VM> {
+    fn create_vm(&mut self) -> DebuggerResult<&mut VM<F>> {
         let file = self.file.as_ref().ok_or(DebuggerError::NoFileLoaded)?;
         let module = Arc::clone(file.module());
         let breakpoints = Arc::clone(file.breakpoints());
@@ -174,7 +182,7 @@ impl Debugger {
         Ok(self.vm.as_mut().unwrap())
     }
 
-    fn ensure_vm(&mut self) -> DebuggerResult<&mut VM> {
+    fn ensure_vm(&mut self) -> DebuggerResult<&mut VM<F>> {
         if let Some(ref mut vm) = self.vm {
             Ok(vm)
         } else {
@@ -182,7 +190,7 @@ impl Debugger {
         }
     }
 
-    pub fn get_vm(&self) -> DebuggerResult<&VM> {
+    pub fn get_vm(&self) -> DebuggerResult<&VM<F>> {
         if let Some(ref vm) = self.vm {
             Ok(vm)
         } else {
@@ -190,7 +198,7 @@ impl Debugger {
         }
     }
 
-    pub fn get_vm_mut(&mut self) -> DebuggerResult<&mut VM> {
+    pub fn get_vm_mut(&mut self) -> DebuggerResult<&mut VM<F>> {
         if let Some(ref mut vm) = self.vm {
             Ok(vm)
         } else {

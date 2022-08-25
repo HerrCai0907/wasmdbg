@@ -1,8 +1,6 @@
-use std::process;
-
-use wasmdbg::Debugger;
-
+use super::Debugger;
 use super::{CmdArg, CmdResult, Command, Commands};
+use std::process;
 
 pub fn add_cmds(commands: &mut Commands) {
     commands.add(
