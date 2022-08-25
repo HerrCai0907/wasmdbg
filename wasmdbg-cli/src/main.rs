@@ -4,14 +4,15 @@ extern crate anyhow;
 use std::sync::Arc;
 
 use clap::{App, Arg};
-use wasmdbg::Debugger;
 
 mod cmds;
+mod debugger;
 mod readline;
 mod utils;
 
 use cmds::{CommandHandler, Commands};
 use readline::Readline;
+type Debugger = debugger::Debugger;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

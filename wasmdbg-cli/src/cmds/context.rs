@@ -1,7 +1,7 @@
+use super::Debugger;
 use bwasm::Instruction;
 use colored::*;
 use wasmdbg::vm::CodePosition;
-use wasmdbg::Debugger;
 
 use super::{CmdArg, CmdResult, Command, Commands};
 use crate::utils::{print_header, print_line};

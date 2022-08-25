@@ -1,12 +1,10 @@
+use crate::Value;
 use bwasm::{InitExpr, ValueType};
 use thiserror::Error;
-
-use crate::Value;
-
+pub mod import_func;
 mod instance;
 mod memory;
 mod table;
-
 pub use instance::*;
 pub use memory::*;
 pub use table::*;

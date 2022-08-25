@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 
+use super::Debugger;
 use bwasm::ValueType;
 use wasmdbg::value::Integer;
-use wasmdbg::Debugger;
 
 use super::context;
 use super::{CmdArg, CmdResult, Command, Commands};

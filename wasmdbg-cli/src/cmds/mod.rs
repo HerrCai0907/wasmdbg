@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::sync::Arc;
 
-use wasmdbg::Debugger;
+use super::Debugger;
 
 mod context;
 mod execution;

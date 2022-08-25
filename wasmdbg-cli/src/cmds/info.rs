@@ -1,8 +1,8 @@
+use super::Debugger;
+use super::{CmdArg, CmdResult, Command, Commands};
 use bwasm::{External, InitExpr, Internal, PAGE_SIZE};
 use wasmdbg::vm::Trap;
-use wasmdbg::{Breakpoint, Debugger};
-
-use super::{CmdArg, CmdResult, Command, Commands};
+use wasmdbg::Breakpoint;
 
 pub fn add_cmds(commands: &mut Commands) {
     commands.add(
