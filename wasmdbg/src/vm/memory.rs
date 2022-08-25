@@ -59,6 +59,9 @@ impl Memory {
     pub fn data(&self) -> &[u8] {
         &self.data
     }
+    pub fn data_mut(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
 
     pub fn load<T: LittleEndianConvert>(&self, address: u32) -> VMResult<T> {
         let size = core::mem::size_of::<T>();

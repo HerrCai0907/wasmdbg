@@ -1,6 +1,12 @@
 syntax = "proto3";
 package wasm_debugger_grpc;
 
+// ██████  ██████   ██████ 
+// ██   ██ ██   ██ ██      
+// ██████  ██████  ██      
+// ██   ██ ██      ██      
+// ██   ██ ██       ██████ 
+
 service WasmDebugger {
   rpc LoadModule(LoadRequest) returns (LoadReply);
   rpc RunCode(RunCodeRequest) returns (RunCodeReply);
@@ -9,7 +15,16 @@ service WasmDebugger {
   rpc GetValueStack(NullRequest) returns (GetValueStackReply);
   rpc GetCallStack(GetCallStackRequest) returns (GetCallStackReply);
 }
+service WasmDAP {
+  rpc RunImportFunction(RunImportFunctionRequest) returns (RunImportFunctionReply);
+}
 
+// ███████ ██   ██ ███████  ██████ ██    ██ ████████ ███████ 
+// ██       ██ ██  ██      ██      ██    ██    ██    ██      
+// █████     ███   █████   ██      ██    ██    ██    █████   
+// ██       ██ ██  ██      ██      ██    ██    ██    ██      
+// ███████ ██   ██ ███████  ██████  ██████     ██    ███████ 
+                                                          
 message LoadRequest { string file_name = 1; }
 message LoadReply {
   Status status = 1;
@@ -21,6 +36,24 @@ message RunCodeReply {
   Status status = 1;
   optional string error_reason = 2;
 }
+
+message RunImportFunctionRequest {
+  uint32 func_index = 1;
+  repeated Value args = 2;
+  repeated Value globals = 3;
+  bytes memory = 4;
+}
+message RunImportFunctionReply {
+  optional Value return_value = 1;
+  repeated Value globals = 3;
+  bytes memory = 4;
+}
+
+// ██      ██ ███████ ████████ ███████ ███    ██ ███████ ██████  
+// ██      ██ ██         ██    ██      ████   ██ ██      ██   ██ 
+// ██      ██ ███████    ██    █████   ██ ██  ██ █████   ██████  
+// ██      ██      ██    ██    ██      ██  ██ ██ ██      ██   ██ 
+// ███████ ██ ███████    ██    ███████ ██   ████ ███████ ██   ██ 
 
 message GetLocalRequest { int32 call_stack = 1; }
 message GetLocalReply {
@@ -43,7 +76,12 @@ message GetCallStackReply {
   repeated CodePosition stacks = 3;
 }
 
-// Helper
+// ██   ██ ███████ ██      ██████  ███████ ██████  
+// ██   ██ ██      ██      ██   ██ ██      ██   ██ 
+// ███████ █████   ██      ██████  █████   ██████  
+// ██   ██ ██      ██      ██      ██      ██   ██ 
+// ██   ██ ███████ ███████ ██      ███████ ██   ██ 
+
 message NullRequest {}
 
 enum Status {
