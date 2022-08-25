@@ -83,6 +83,8 @@ impl WasmDebugger for WasmDebuggerImpl {
         let run_result = match run_code_type {
             wasm_debugger_grpc::RunCodeType::Start => dbg.start(),
             wasm_debugger_grpc::RunCodeType::Step => dbg.execute_step(),
+            wasm_debugger_grpc::RunCodeType::StepOut => dbg.execute_step_out(),
+            wasm_debugger_grpc::RunCodeType::StepOver => dbg.execute_step_over(),
         };
         match handle_run_result(run_result) {
             Ok(_) => (),
