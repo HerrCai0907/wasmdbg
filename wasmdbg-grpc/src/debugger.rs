@@ -3,10 +3,7 @@ use std::thread;
 use crate::grpc::wasm_debugger_grpc::{self, wasm_dap_client::WasmDapClient, RunImportFunctionRequest};
 use tokio::runtime;
 use tonic::Request;
-use wasmdbg::{
-    vm::{Trap, VMResult, VM},
-    ImportFunctionHandler,
-};
+use wasmdbg::vm::{import_func::ImportFunctionHandler, Trap, VMResult, VM};
 
 #[derive(Default)]
 pub struct GrpcImportHandler {}
