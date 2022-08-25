@@ -51,11 +51,11 @@ impl ImportFunctionHandler for GrpcImportHandler {
                     };
                     Ok(response)
                 })
-                .unwrap()
-                .into_inner()
         })
         .join()
-        .expect("thread panicked");
+        .map_err(|_| Trap::UnsupportedCallToImportedFunction(func_index))?
+        .map_err(|_| Trap::UnsupportedCallToImportedFunction(func_index))?
+        .into_inner();
 
         if let Some(return_value) = response.return_value {
             vm.value_stack_mut().push(return_value.to_value());
