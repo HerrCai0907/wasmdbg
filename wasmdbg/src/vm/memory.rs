@@ -5,6 +5,7 @@ use crate::value::LittleEndianConvert;
 
 pub const MEMORY_MAX_PAGES: u32 = 0x10000;
 
+#[derive(Debug)]
 pub struct Memory {
     data: Vec<u8>,
     limits: ResizableLimits,
@@ -13,7 +14,7 @@ pub struct Memory {
 impl Memory {
     pub fn new(memory: &bwasm::Memory) -> Memory {
         Memory {
-            data: vec![0; memory.limits().initial() as usize],
+            data: vec![0; (memory.limits().initial() * PAGE_SIZE) as usize],
             limits: *memory.limits(),
         }
     }
