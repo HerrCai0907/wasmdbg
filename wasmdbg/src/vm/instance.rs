@@ -431,6 +431,7 @@ where
 
     fn execute_import_function(&mut self) -> VMResult<()> {
         ImportHandler::handle_import_function(self)?;
+        self.label_stack.pop();
         let frame = self.function_stack.pop().unwrap();
         self.ip = frame.ret_addr;
         Ok(())

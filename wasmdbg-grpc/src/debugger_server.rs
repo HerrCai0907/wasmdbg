@@ -1,16 +1,12 @@
-use std::sync::Mutex;
-use tonic::{Request, Response};
-use wasm_debugger_grpc::{
-    wasm_debugger_server::WasmDebugger, GetCallStackReply, GetCallStackRequest, GetLocalReply, GetLocalRequest,
+use crate::grpc::wasm_debugger_grpc::{
+    self, wasm_debugger_server::WasmDebugger, GetCallStackReply, GetCallStackRequest, GetLocalReply, GetLocalRequest,
     GetValueStackReply, LoadReply, LoadRequest, NullRequest, RunCodeReply, RunCodeRequest,
 };
-use wasmdbg::{vm::Trap, DebuggerResult, Value};
+use std::sync::Mutex;
+use tonic::{Request, Response};
+use wasmdbg::{vm::Trap, DebuggerResult};
 
 use crate::debugger::Debugger;
-
-pub mod wasm_debugger_grpc {
-    tonic::include_proto!("wasm_debugger_grpc"); // The string specified here must match the proto package name
-}
 
 pub struct WasmDebuggerImpl {
     dbg: Mutex<Debugger>,
@@ -31,20 +27,6 @@ fn handle_run_result(result: DebuggerResult<Option<Trap>>) -> Result<(), String>
             Some(trap) => Err(format!("{}", trap)),
             None => Ok(()),
         },
-    }
-}
-
-impl wasm_debugger_grpc::Value {
-    fn from_value(value: &Value) -> Self {
-        type ProtoValue = wasm_debugger_grpc::value::Value;
-        Self {
-            value: Some(match value {
-                Value::I32(v) => ProtoValue::I32(*v),
-                Value::I64(v) => ProtoValue::I64(*v),
-                Value::F32(v) => ProtoValue::F32(f32::from(*v)),
-                Value::F64(v) => ProtoValue::F64(f64::from(*v)),
-            }),
-        }
     }
 }
 
@@ -125,7 +107,7 @@ impl WasmDebugger for WasmDebuggerImpl {
             Ok(curr_func
                 .locals
                 .iter()
-                .map(|local| wasm_debugger_grpc::Value::from_value(local))
+                .map(wasm_debugger_grpc::Value::from_value)
                 .collect())
         })();
 
@@ -159,7 +141,7 @@ impl WasmDebugger for WasmDebuggerImpl {
             .map(|vm| {
                 vm.value_stack()
                     .iter()
-                    .map(|value| wasm_debugger_grpc::Value::from_value(value))
+                    .map(wasm_debugger_grpc::Value::from_value)
                     .collect()
             })
             .unwrap_or_else(|| {
