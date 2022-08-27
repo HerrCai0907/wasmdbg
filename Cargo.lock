@@ -1413,6 +1413,7 @@ dependencies = [
 name = "wasmdbg-grpc"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "prost",
  "tokio",
  "tonic",

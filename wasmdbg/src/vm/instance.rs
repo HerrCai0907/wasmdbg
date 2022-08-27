@@ -82,8 +82,8 @@ where
         &self.value_stack
     }
 
-    pub fn import_function_handler_mut(&mut self) -> &ImportHandler {
-        &self.import_function_handler
+    pub fn import_function_handler_mut(&mut self) -> &mut ImportHandler {
+        &mut self.import_function_handler
     }
 
     pub fn value_stack_mut(&mut self) -> &mut Vec<Value> {

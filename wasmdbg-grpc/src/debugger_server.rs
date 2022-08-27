@@ -9,13 +9,15 @@ use wasmdbg::{vm::Trap, DebuggerResult};
 use crate::debugger::Debugger;
 
 pub struct WasmDebuggerImpl {
+    client_addr: String,
     dbg: Mutex<Debugger>,
 }
 
 impl WasmDebuggerImpl {
-    pub fn new() -> Self {
+    pub fn new(client_addr: &str) -> Self {
         Self {
             dbg: Mutex::new(Debugger::new()),
+            client_addr: String::from(client_addr),
         }
     }
 }
@@ -62,9 +64,16 @@ impl WasmDebugger for WasmDebuggerImpl {
                 }))
             }
         };
-
         let run_result = match run_code_type {
-            wasm_debugger_grpc::RunCodeType::Start => dbg.start(),
+            wasm_debugger_grpc::RunCodeType::Start => {
+                let ret = dbg.start();
+                let client_addr = &self.client_addr;
+                dbg.get_vm_mut()
+                    .unwrap()
+                    .import_function_handler_mut()
+                    .set_dap_addr(client_addr);
+                ret
+            }
             wasm_debugger_grpc::RunCodeType::Step => dbg.execute_step(),
             wasm_debugger_grpc::RunCodeType::StepOut => dbg.execute_step_out(),
             wasm_debugger_grpc::RunCodeType::StepOver => dbg.execute_step_over(),

@@ -6,7 +6,15 @@ use tonic::Request;
 use wasmdbg::vm::{import_func::ImportFunctionHandler, Trap, VMResult, VM};
 
 #[derive(Default)]
-pub struct GrpcImportHandler {}
+pub struct GrpcImportHandler {
+    dap_addr: String,
+}
+
+impl GrpcImportHandler {
+    pub fn set_dap_addr(&mut self, addr: &str) {
+        self.dap_addr = String::from(addr);
+    }
+}
 
 impl ImportFunctionHandler for GrpcImportHandler {
     fn handle_import_function(vm: &mut VM<Self>) -> VMResult<()> {
@@ -21,6 +29,7 @@ impl ImportFunctionHandler for GrpcImportHandler {
             .collect();
         let globals = vm.globals().iter().map(wasm_debugger_grpc::Value::from_value).collect();
         let memory = Vec::from(vm.default_memory()?.data());
+        let dap_addr = vm.import_function_handler_mut().dap_addr.clone();
 
         let response = thread::spawn(move || {
             runtime::Builder::new_current_thread()
@@ -28,7 +37,6 @@ impl ImportFunctionHandler for GrpcImportHandler {
                 .build()
                 .unwrap()
                 .block_on(async {
-                    let dap_addr = "http://[::1]:50052";
                     let mut client = match WasmDapClient::connect(dap_addr).await {
                         Ok(client) => client,
                         Err(err) => {
