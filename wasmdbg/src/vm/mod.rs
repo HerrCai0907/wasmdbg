@@ -19,7 +19,7 @@ pub enum InitError {
     OffsetInvalidType(ValueType),
 }
 
-#[derive(Error, Clone, Debug)]
+#[derive(Error, Clone, Debug, PartialEq)]
 pub enum Trap {
     #[error("Reached unreachable")]
     ReachedUnreachable,

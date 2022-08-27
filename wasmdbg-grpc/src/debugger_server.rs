@@ -4,7 +4,7 @@ use crate::grpc::wasm_debugger_grpc::{
 };
 use std::sync::Mutex;
 use tonic::{Request, Response};
-use wasmdbg::{vm::Trap, DebuggerResult};
+use wasmdbg::vm::Trap;
 
 use crate::debugger::Debugger;
 
@@ -19,16 +19,6 @@ impl WasmDebuggerImpl {
             dbg: Mutex::new(Debugger::new()),
             client_addr: String::from(client_addr),
         }
-    }
-}
-
-fn handle_run_result(result: DebuggerResult<Option<Trap>>) -> Result<(), String> {
-    match result {
-        Err(err) => Err(format!("{}", err)),
-        Ok(trap) => match trap {
-            Some(trap) => Err(format!("{}", trap)),
-            None => Ok(()),
-        },
     }
 }
 
@@ -65,23 +55,34 @@ impl WasmDebugger for WasmDebuggerImpl {
             }
         };
         let run_result = match run_code_type {
-            wasm_debugger_grpc::RunCodeType::Start => {
-                let ret = dbg.start();
-                let client_addr = &self.client_addr;
+            wasm_debugger_grpc::RunCodeType::Start => dbg.start().and_then(|ret| {
+                let client_addr = &__self.client_addr;
                 dbg.get_vm_mut()
                     .unwrap()
                     .import_function_handler_mut()
                     .set_dap_addr(client_addr);
-                ret
-            }
+                Ok(ret)
+            }),
             wasm_debugger_grpc::RunCodeType::Step => dbg.execute_step(),
             wasm_debugger_grpc::RunCodeType::StepOut => dbg.execute_step_out(),
             wasm_debugger_grpc::RunCodeType::StepOver => dbg.execute_step_over(),
+            wasm_debugger_grpc::RunCodeType::Continue => dbg.continue_execution().and_then(|ret| Ok(Some(ret))),
         };
-        match handle_run_result(run_result) {
-            Ok(_) => (),
-            Err(error_message) => (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(error_message)),
-        }
+        match run_result {
+            Ok(trap) => {
+                if let Some(trap) = trap {
+                    match trap {
+                        Trap::ExecutionFinished => status = wasm_debugger_grpc::Status::Finish,
+                        other_trap => {
+                            (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(format!("{}", other_trap)))
+                        }
+                    };
+                }
+            }
+            Err(error_message) => {
+                (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(format!("{}", error_message)))
+            }
+        };
 
         Ok(Response::new(RunCodeReply {
             status: status as i32,

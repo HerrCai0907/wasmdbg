@@ -1,11 +1,11 @@
 syntax = "proto3";
 package wasm_debugger_grpc;
 
-// ██████  ██████   ██████ 
-// ██   ██ ██   ██ ██      
-// ██████  ██████  ██      
-// ██   ██ ██      ██      
-// ██   ██ ██       ██████ 
+// ██████  ██████   ██████
+// ██   ██ ██   ██ ██
+// ██████  ██████  ██
+// ██   ██ ██      ██
+// ██   ██ ██       ██████
 
 service WasmDebugger {
   rpc LoadModule(LoadRequest) returns (LoadReply);
@@ -16,15 +16,16 @@ service WasmDebugger {
   rpc GetCallStack(GetCallStackRequest) returns (GetCallStackReply);
 }
 service WasmDAP {
-  rpc RunImportFunction(RunImportFunctionRequest) returns (RunImportFunctionReply);
+  rpc RunImportFunction(RunImportFunctionRequest)
+      returns (RunImportFunctionReply);
 }
 
-// ███████ ██   ██ ███████  ██████ ██    ██ ████████ ███████ 
-// ██       ██ ██  ██      ██      ██    ██    ██    ██      
-// █████     ███   █████   ██      ██    ██    ██    █████   
-// ██       ██ ██  ██      ██      ██    ██    ██    ██      
-// ███████ ██   ██ ███████  ██████  ██████     ██    ███████ 
-                                                          
+// ███████ ██   ██ ███████  ██████ ██    ██ ████████ ███████
+// ██       ██ ██  ██      ██      ██    ██    ██    ██
+// █████     ███   █████   ██      ██    ██    ██    █████
+// ██       ██ ██  ██      ██      ██    ██    ██    ██
+// ███████ ██   ██ ███████  ██████  ██████     ██    ███████
+
 message LoadRequest { string file_name = 1; }
 message LoadReply {
   Status status = 1;
@@ -49,11 +50,11 @@ message RunImportFunctionReply {
   bytes memory = 4;
 }
 
-// ██      ██ ███████ ████████ ███████ ███    ██ ███████ ██████  
-// ██      ██ ██         ██    ██      ████   ██ ██      ██   ██ 
-// ██      ██ ███████    ██    █████   ██ ██  ██ █████   ██████  
-// ██      ██      ██    ██    ██      ██  ██ ██ ██      ██   ██ 
-// ███████ ██ ███████    ██    ███████ ██   ████ ███████ ██   ██ 
+// ██      ██ ███████ ████████ ███████ ███    ██ ███████ ██████
+// ██      ██ ██         ██    ██      ████   ██ ██      ██   ██
+// ██      ██ ███████    ██    █████   ██ ██  ██ █████   ██████
+// ██      ██      ██    ██    ██      ██  ██ ██ ██      ██   ██
+// ███████ ██ ███████    ██    ███████ ██   ████ ███████ ██   ██
 
 message GetLocalRequest { int32 call_stack = 1; }
 message GetLocalReply {
@@ -76,17 +77,18 @@ message GetCallStackReply {
   repeated CodePosition stacks = 3;
 }
 
-// ██   ██ ███████ ██      ██████  ███████ ██████  
-// ██   ██ ██      ██      ██   ██ ██      ██   ██ 
-// ███████ █████   ██      ██████  █████   ██████  
-// ██   ██ ██      ██      ██      ██      ██   ██ 
-// ██   ██ ███████ ███████ ██      ███████ ██   ██ 
+// ██   ██ ███████ ██      ██████  ███████ ██████
+// ██   ██ ██      ██      ██   ██ ██      ██   ██
+// ███████ █████   ██      ██████  █████   ██████
+// ██   ██ ██      ██      ██      ██      ██   ██
+// ██   ██ ███████ ███████ ██      ███████ ██   ██
 
 message NullRequest {}
 
 enum Status {
   OK = 0;
   NOK = 1;
+  FINISH = 2;
 }
 
 enum RunCodeType {
@@ -94,6 +96,7 @@ enum RunCodeType {
   STEP = 1;
   STEP_OUT = 2;
   STEP_OVER = 3;
+  CONTINUE = 4;
 }
 
 message CodePosition {
