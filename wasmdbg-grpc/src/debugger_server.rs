@@ -1,6 +1,6 @@
 use crate::grpc::wasm_debugger_grpc::{
-    self, wasm_debugger_server::WasmDebugger, GetCallStackReply, GetCallStackRequest, GetLocalReply, GetLocalRequest,
-    GetValueStackReply, LoadReply, LoadRequest, NullRequest, RunCodeReply, RunCodeRequest,
+    self, wasm_debugger_server::WasmDebugger, GetCallStackReply, GetCallStackRequest, GetGlobalReply, GetLocalReply,
+    GetLocalRequest, GetValueStackReply, LoadReply, LoadRequest, NullRequest, RunCodeReply, RunCodeRequest,
 };
 use std::sync::Mutex;
 use tonic::{Request, Response};
@@ -135,6 +135,32 @@ impl WasmDebugger for WasmDebuggerImpl {
             error_reason,
             func_index,
             locals,
+        }))
+    }
+
+    async fn get_global(&self, _request: Request<NullRequest>) -> Result<Response<GetGlobalReply>, tonic::Status> {
+        let dbg = self.dbg.lock().unwrap();
+
+        let mut status = wasm_debugger_grpc::Status::Ok;
+        let mut error_reason = None;
+
+        let globals = dbg
+            .get_vm()
+            .map(|vm| {
+                vm.globals()
+                    .iter()
+                    .map(|global| wasm_debugger_grpc::Value::from_value(global))
+                    .collect()
+            })
+            .unwrap_or_else(|err| {
+                (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(format!("{}", err)));
+                Vec::new()
+            });
+
+        Ok(Response::new(GetGlobalReply {
+            status: status as i32,
+            error_reason,
+            globals,
         }))
     }
 

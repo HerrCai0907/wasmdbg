@@ -12,6 +12,7 @@ service WasmDebugger {
   rpc RunCode(RunCodeRequest) returns (RunCodeReply);
 
   rpc GetLocal(GetLocalRequest) returns (GetLocalReply);
+  rpc GetGlobal(NullRequest) returns (GetGlobalReply);
   rpc GetValueStack(NullRequest) returns (GetValueStackReply);
   rpc GetCallStack(GetCallStackRequest) returns (GetCallStackReply);
 }
@@ -62,6 +63,11 @@ message GetLocalReply {
   optional string error_reason = 2;
   optional uint32 func_index = 3;
   repeated Value locals = 4;
+}
+message GetGlobalReply {
+  Status status = 1;
+  optional string error_reason = 2;
+  repeated Value globals = 3;
 }
 
 message GetValueStackReply {
