@@ -8,13 +8,13 @@ package wasm_debugger_grpc;
 // ██   ██ ██       ██████
 
 service WasmDebugger {
-  rpc LoadModule(LoadRequest) returns (LoadReply);
-  rpc RunCode(RunCodeRequest) returns (RunCodeReply);
+  rpc LoadModule(LoadRequest) returns (NormalReply);
+  rpc RunCode(RunCodeRequest) returns (NormalReply);
 
   rpc GetLocal(GetLocalRequest) returns (GetLocalReply);
   rpc GetGlobal(NullRequest) returns (GetGlobalReply);
   rpc GetValueStack(NullRequest) returns (GetValueStackReply);
-  rpc GetCallStack(GetCallStackRequest) returns (GetCallStackReply);
+  rpc GetCallStack(NullRequest) returns (GetCallStackReply);
 }
 service WasmDAP {
   rpc RunImportFunction(RunImportFunctionRequest)
@@ -28,10 +28,6 @@ service WasmDAP {
 // ███████ ██   ██ ███████  ██████  ██████     ██    ███████
 
 message LoadRequest { string file_name = 1; }
-message LoadReply {
-  Status status = 1;
-  optional string error_reason = 2;
-}
 
 message RunCodeRequest { RunCodeType run_code_type = 1; }
 message RunCodeReply {
@@ -76,7 +72,6 @@ message GetValueStackReply {
   repeated Value values = 4;
 }
 
-message GetCallStackRequest {}
 message GetCallStackReply {
   Status status = 1;
   optional string error_reason = 2;
@@ -90,6 +85,10 @@ message GetCallStackReply {
 // ██   ██ ███████ ███████ ██      ███████ ██   ██
 
 message NullRequest {}
+message NormalReply {
+  Status status = 1;
+  optional string error_reason = 2;
+}
 
 enum Status {
   OK = 0;

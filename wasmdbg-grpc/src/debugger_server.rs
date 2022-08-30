@@ -1,6 +1,6 @@
 use crate::grpc::wasm_debugger_grpc::{
-    self, wasm_debugger_server::WasmDebugger, GetCallStackReply, GetCallStackRequest, GetGlobalReply, GetLocalReply,
-    GetLocalRequest, GetValueStackReply, LoadReply, LoadRequest, NullRequest, RunCodeReply, RunCodeRequest,
+    self, wasm_debugger_server::WasmDebugger, GetCallStackReply, GetGlobalReply, GetLocalReply, GetLocalRequest,
+    GetValueStackReply, LoadRequest, NormalReply, NullRequest, RunCodeRequest,
 };
 use std::sync::Mutex;
 use tonic::{Request, Response};
@@ -24,7 +24,7 @@ impl WasmDebuggerImpl {
 
 #[tonic::async_trait]
 impl WasmDebugger for WasmDebuggerImpl {
-    async fn load_module(&self, request: Request<LoadRequest>) -> Result<Response<LoadReply>, tonic::Status> {
+    async fn load_module(&self, request: Request<LoadRequest>) -> Result<Response<NormalReply>, tonic::Status> {
         let mut dbg = self.dbg.lock().unwrap();
         let file_name = request.into_inner().file_name;
         let mut error_reason = None;
@@ -33,12 +33,12 @@ impl WasmDebugger for WasmDebuggerImpl {
             error_reason = Some(format!("{}", err));
             status = wasm_debugger_grpc::Status::Nok;
         });
-        Ok(Response::new(LoadReply {
+        Ok(Response::new(NormalReply {
             status: status as i32,
             error_reason,
         }))
     }
-    async fn run_code(&self, request: Request<RunCodeRequest>) -> Result<Response<RunCodeReply>, tonic::Status> {
+    async fn run_code(&self, request: Request<RunCodeRequest>) -> Result<Response<NormalReply>, tonic::Status> {
         let mut dbg = self.dbg.lock().unwrap();
 
         let mut status = wasm_debugger_grpc::Status::Ok;
@@ -48,7 +48,7 @@ impl WasmDebugger for WasmDebuggerImpl {
         let run_code_type = match run_code_type {
             Some(run_code_type) => run_code_type,
             None => {
-                return Ok(Response::new(RunCodeReply {
+                return Ok(Response::new(NormalReply {
                     status: wasm_debugger_grpc::Status::Nok as i32,
                     error_reason: Some(String::from("invalud proto")),
                 }))
@@ -84,7 +84,7 @@ impl WasmDebugger for WasmDebuggerImpl {
             }
         };
 
-        Ok(Response::new(RunCodeReply {
+        Ok(Response::new(NormalReply {
             status: status as i32,
             error_reason,
         }))
@@ -194,7 +194,7 @@ impl WasmDebugger for WasmDebuggerImpl {
 
     async fn get_call_stack(
         &self,
-        _request: Request<GetCallStackRequest>,
+        _request: Request<NullRequest>,
     ) -> Result<Response<GetCallStackReply>, tonic::Status> {
         let dbg = self.dbg.lock().unwrap();
         let mut status = wasm_debugger_grpc::Status::Ok;
