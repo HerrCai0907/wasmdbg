@@ -1,10 +1,14 @@
 use crate::grpc::wasm_debugger_grpc::{
-    self, wasm_debugger_server::WasmDebugger, GetCallStackReply, GetGlobalReply, GetLocalReply, GetLocalRequest,
-    GetValueStackReply, LoadRequest, NormalReply, NullRequest, RunCodeRequest,
+    self, wasm_debugger_server::WasmDebugger, AddBreakpointReply, DeleteBreakpointRequest, GetCallStackReply,
+    GetGlobalReply, GetLocalReply, GetLocalRequest, GetValueStackReply, LoadRequest, NormalReply, NullRequest,
+    RunCodeRequest,
 };
 use std::sync::Mutex;
 use tonic::{Request, Response};
-use wasmdbg::vm::Trap;
+use wasmdbg::{
+    vm::{CodePosition, Trap},
+    Breakpoint,
+};
 
 use crate::debugger::Debugger;
 
@@ -227,6 +231,61 @@ impl WasmDebugger for WasmDebuggerImpl {
             status: status as i32,
             error_reason,
             stacks,
+        }))
+    }
+
+    async fn add_breakpoint(
+        &self,
+        request: Request<wasm_debugger_grpc::CodePosition>,
+    ) -> Result<Response<AddBreakpointReply>, tonic::Status> {
+        let code_position = request.get_ref();
+        let mut dbg = self.dbg.lock().unwrap();
+        let mut status = wasm_debugger_grpc::Status::Ok;
+        let mut error_reason = None;
+
+        let index = dbg
+            .add_breakpoint(Breakpoint::Code(CodePosition {
+                func_index: code_position.func_index,
+                instr_index: code_position.instr_index,
+            }))
+            .map_or_else(
+                |err| {
+                    (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(format!("{}", err)));
+                    None
+                },
+                |index| Some(index),
+            );
+        Ok(Response::new(AddBreakpointReply {
+            status: status as i32,
+            error_reason,
+            breakpoint_index: index,
+        }))
+    }
+
+    async fn delete_breakpoint(
+        &self,
+        request: Request<DeleteBreakpointRequest>,
+    ) -> Result<Response<NormalReply>, tonic::Status> {
+        let index = request.get_ref().breakpoint_index;
+        let mut dbg = self.dbg.lock().unwrap();
+
+        let (status, error_reason) = dbg.delete_breakpoint(index).map_or_else(
+            |err| (wasm_debugger_grpc::Status::Nok, Some(format!("{}", err))),
+            |is_success| {
+                if is_success {
+                    (wasm_debugger_grpc::Status::Ok, None)
+                } else {
+                    (
+                        wasm_debugger_grpc::Status::Nok,
+                        Some(format!("breakpoint {} not exist", index)),
+                    )
+                }
+            },
+        );
+
+        Ok(Response::new(NormalReply {
+            status: status as i32,
+            error_reason,
         }))
     }
 }
