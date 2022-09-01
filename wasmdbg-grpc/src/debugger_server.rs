@@ -1,10 +1,14 @@
 use crate::grpc::wasm_debugger_grpc::{
-    self, wasm_debugger_server::WasmDebugger, GetCallStackReply, GetCallStackRequest, GetGlobalReply, GetLocalReply,
-    GetLocalRequest, GetValueStackReply, LoadReply, LoadRequest, NullRequest, RunCodeReply, RunCodeRequest,
+    self, wasm_debugger_server::WasmDebugger, AddBreakpointReply, DeleteBreakpointRequest, GetCallStackReply,
+    GetGlobalReply, GetLocalReply, GetLocalRequest, GetValueStackReply, LoadRequest, NormalReply, NullRequest,
+    RunCodeRequest,
 };
 use std::sync::Mutex;
 use tonic::{Request, Response};
-use wasmdbg::vm::Trap;
+use wasmdbg::{
+    vm::{CodePosition, Trap},
+    Breakpoint,
+};
 
 use crate::debugger::Debugger;
 
@@ -24,7 +28,7 @@ impl WasmDebuggerImpl {
 
 #[tonic::async_trait]
 impl WasmDebugger for WasmDebuggerImpl {
-    async fn load_module(&self, request: Request<LoadRequest>) -> Result<Response<LoadReply>, tonic::Status> {
+    async fn load_module(&self, request: Request<LoadRequest>) -> Result<Response<NormalReply>, tonic::Status> {
         let mut dbg = self.dbg.lock().unwrap();
         let file_name = request.into_inner().file_name;
         let mut error_reason = None;
@@ -33,22 +37,19 @@ impl WasmDebugger for WasmDebuggerImpl {
             error_reason = Some(format!("{}", err));
             status = wasm_debugger_grpc::Status::Nok;
         });
-        Ok(Response::new(LoadReply {
+        Ok(Response::new(NormalReply {
             status: status as i32,
             error_reason,
         }))
     }
-    async fn run_code(&self, request: Request<RunCodeRequest>) -> Result<Response<RunCodeReply>, tonic::Status> {
+    async fn run_code(&self, request: Request<RunCodeRequest>) -> Result<Response<NormalReply>, tonic::Status> {
         let mut dbg = self.dbg.lock().unwrap();
-
-        let mut status = wasm_debugger_grpc::Status::Ok;
-        let mut error_reason = None;
 
         let run_code_type = wasm_debugger_grpc::RunCodeType::from_i32(request.into_inner().run_code_type);
         let run_code_type = match run_code_type {
             Some(run_code_type) => run_code_type,
             None => {
-                return Ok(Response::new(RunCodeReply {
+                return Ok(Response::new(NormalReply {
                     status: wasm_debugger_grpc::Status::Nok as i32,
                     error_reason: Some(String::from("invalud proto")),
                 }))
@@ -68,23 +69,20 @@ impl WasmDebugger for WasmDebuggerImpl {
             wasm_debugger_grpc::RunCodeType::StepOver => dbg.execute_step_over(),
             wasm_debugger_grpc::RunCodeType::Continue => dbg.continue_execution().and_then(|ret| Ok(Some(ret))),
         };
-        match run_result {
-            Ok(trap) => {
-                if let Some(trap) = trap {
-                    match trap {
-                        Trap::ExecutionFinished => status = wasm_debugger_grpc::Status::Finish,
-                        other_trap => {
-                            (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(format!("{}", other_trap)))
-                        }
-                    };
-                }
-            }
-            Err(error_message) => {
-                (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(format!("{}", error_message)))
-            }
+        let (status, error_reason) = match run_result {
+            Ok(trap) => match trap {
+                Some(trap) => match trap {
+                    Trap::ExecutionFinished => (wasm_debugger_grpc::Status::Finish, None),
+                    Trap::WatchpointReached(_) => (wasm_debugger_grpc::Status::Ok, None),
+                    Trap::BreakpointReached(_) => (wasm_debugger_grpc::Status::Ok, None),
+                    other_trap => (wasm_debugger_grpc::Status::Nok, Some(format!("{}", other_trap))),
+                },
+                None => (wasm_debugger_grpc::Status::Ok, None),
+            },
+            Err(error_message) => (wasm_debugger_grpc::Status::Nok, Some(format!("{}", error_message))),
         };
 
-        Ok(Response::new(RunCodeReply {
+        Ok(Response::new(NormalReply {
             status: status as i32,
             error_reason,
         }))
@@ -194,7 +192,7 @@ impl WasmDebugger for WasmDebuggerImpl {
 
     async fn get_call_stack(
         &self,
-        _request: Request<GetCallStackRequest>,
+        _request: Request<NullRequest>,
     ) -> Result<Response<GetCallStackReply>, tonic::Status> {
         let dbg = self.dbg.lock().unwrap();
         let mut status = wasm_debugger_grpc::Status::Ok;
@@ -227,6 +225,61 @@ impl WasmDebugger for WasmDebuggerImpl {
             status: status as i32,
             error_reason,
             stacks,
+        }))
+    }
+
+    async fn add_breakpoint(
+        &self,
+        request: Request<wasm_debugger_grpc::CodePosition>,
+    ) -> Result<Response<AddBreakpointReply>, tonic::Status> {
+        let code_position = request.get_ref();
+        let mut dbg = self.dbg.lock().unwrap();
+        let mut status = wasm_debugger_grpc::Status::Ok;
+        let mut error_reason = None;
+
+        let index = dbg
+            .add_breakpoint(Breakpoint::Code(CodePosition {
+                func_index: code_position.func_index,
+                instr_index: code_position.instr_index,
+            }))
+            .map_or_else(
+                |err| {
+                    (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(format!("{}", err)));
+                    None
+                },
+                |index| Some(index),
+            );
+        Ok(Response::new(AddBreakpointReply {
+            status: status as i32,
+            error_reason,
+            breakpoint_index: index,
+        }))
+    }
+
+    async fn delete_breakpoint(
+        &self,
+        request: Request<DeleteBreakpointRequest>,
+    ) -> Result<Response<NormalReply>, tonic::Status> {
+        let index = request.get_ref().breakpoint_index;
+        let mut dbg = self.dbg.lock().unwrap();
+
+        let (status, error_reason) = dbg.delete_breakpoint(index).map_or_else(
+            |err| (wasm_debugger_grpc::Status::Nok, Some(format!("{}", err))),
+            |is_success| {
+                if is_success {
+                    (wasm_debugger_grpc::Status::Ok, None)
+                } else {
+                    (
+                        wasm_debugger_grpc::Status::Nok,
+                        Some(format!("breakpoint {} not exist", index)),
+                    )
+                }
+            },
+        );
+
+        Ok(Response::new(NormalReply {
+            status: status as i32,
+            error_reason,
         }))
     }
 }
