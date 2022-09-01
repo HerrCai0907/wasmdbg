@@ -45,9 +45,6 @@ impl WasmDebugger for WasmDebuggerImpl {
     async fn run_code(&self, request: Request<RunCodeRequest>) -> Result<Response<NormalReply>, tonic::Status> {
         let mut dbg = self.dbg.lock().unwrap();
 
-        let mut status = wasm_debugger_grpc::Status::Ok;
-        let mut error_reason = None;
-
         let run_code_type = wasm_debugger_grpc::RunCodeType::from_i32(request.into_inner().run_code_type);
         let run_code_type = match run_code_type {
             Some(run_code_type) => run_code_type,
@@ -72,20 +69,17 @@ impl WasmDebugger for WasmDebuggerImpl {
             wasm_debugger_grpc::RunCodeType::StepOver => dbg.execute_step_over(),
             wasm_debugger_grpc::RunCodeType::Continue => dbg.continue_execution().and_then(|ret| Ok(Some(ret))),
         };
-        match run_result {
-            Ok(trap) => {
-                if let Some(trap) = trap {
-                    match trap {
-                        Trap::ExecutionFinished => status = wasm_debugger_grpc::Status::Finish,
-                        other_trap => {
-                            (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(format!("{}", other_trap)))
-                        }
-                    };
-                }
-            }
-            Err(error_message) => {
-                (status, error_reason) = (wasm_debugger_grpc::Status::Nok, Some(format!("{}", error_message)))
-            }
+        let (status, error_reason) = match run_result {
+            Ok(trap) => match trap {
+                Some(trap) => match trap {
+                    Trap::ExecutionFinished => (wasm_debugger_grpc::Status::Finish, None),
+                    Trap::WatchpointReached(_) => (wasm_debugger_grpc::Status::Ok, None),
+                    Trap::BreakpointReached(_) => (wasm_debugger_grpc::Status::Ok, None),
+                    other_trap => (wasm_debugger_grpc::Status::Nok, Some(format!("{}", other_trap))),
+                },
+                None => (wasm_debugger_grpc::Status::Ok, None),
+            },
+            Err(error_message) => (wasm_debugger_grpc::Status::Nok, Some(format!("{}", error_message))),
         };
 
         Ok(Response::new(NormalReply {
